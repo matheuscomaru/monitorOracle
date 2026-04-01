@@ -2,6 +2,7 @@ package com.tecgesco.tcgapicigam.app;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.SystemColor;
 import java.awt.Toolkit;
@@ -10,6 +11,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,11 +45,14 @@ import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JSeparator;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.SwingConstants;
 import java.awt.Dimension;
 
 import com.tecgesco.tcgapicigam.dao.ConfigDao;
 import com.tecgesco.tcgapicigam.dao.ConfigDao.typeProp;
+import java.awt.FlowLayout;
 
 public class FrmHome extends JFrame {
 
@@ -65,6 +76,11 @@ public class FrmHome extends JFrame {
 	private JSeparator separator;
 	private JSeparator separator_1;
 	private static final String PROP_DESCONSIDERAR = "prop.monitor.desconsiderar";
+	private JButton btnSalvar;
+	private JButton btnAbrir;
+	private JPanel panel;
+	private JLabel lblNewLabel_2;
+	private JTextField txtLinha;
 
 	public FrmHome() {
 
@@ -106,6 +122,15 @@ public class FrmHome extends JFrame {
 			}
 		});
 		scrollPane.setViewportView(list);
+		list.addListSelectionListener(new ListSelectionListener() {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				if (!e.getValueIsAdjusting()) {
+					int idx = list.getSelectedIndex();
+					txtLinha.setText(idx >= 0 ? String.valueOf(idx + 1) : "");
+				}
+			}
+		});
 		list.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
@@ -121,6 +146,22 @@ public class FrmHome extends JFrame {
 		JToolBar toolBar = new JToolBar();
 		toolBar.setFloatable(false);
 		panel_1.add(toolBar, BorderLayout.NORTH);
+		
+		btnSalvar = new JButton("Salvar");
+		toolBar.add(btnSalvar);
+		btnSalvar.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				salvarArquivo();
+			}
+		});
+
+		btnAbrir = new JButton("Abrir");
+		toolBar.add(btnAbrir);
+		btnAbrir.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				abrirArquivo();
+			}
+		});
 
 		btnMonitor = new JButton("Iniciar / Parar Monitor");
 		toolBar.add(btnMonitor);
@@ -179,6 +220,19 @@ public class FrmHome extends JFrame {
 
 		btnPesquisa = new JButton("Pesquisar");
 		toolBar.add(btnPesquisa);
+		
+		panel = new JPanel();
+		FlowLayout flowLayout = (FlowLayout) panel.getLayout();
+		flowLayout.setAlignment(FlowLayout.LEFT);
+		panel_1.add(panel, BorderLayout.SOUTH);
+		
+		lblNewLabel_2 = new JLabel("Linha");
+		panel.add(lblNewLabel_2);
+		
+		txtLinha = new JTextField();
+		txtLinha.setEditable(false);
+		panel.add(txtLinha);
+		txtLinha.setColumns(5);
 		btnPesquisa.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				salvarFiltros();
@@ -410,6 +464,63 @@ public class FrmHome extends JFrame {
 
 		Toolkit.getDefaultToolkit().getSystemClipboard()
 				.setContents(new StringSelection(conteudo.toString()), null);
+	}
+
+	private void salvarArquivo() {
+		if (model.isEmpty()) {
+			JOptionPane.showMessageDialog(this, "Não há linhas visíveis para salvar.");
+			return;
+		}
+
+		JFileChooser chooser = new JFileChooser();
+		chooser.setDialogTitle("Salvar log");
+		chooser.setSelectedFile(new File("monitor_oracle_" + LocalDateTime.now()
+				.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".txt"));
+		chooser.setFileFilter(new FileNameExtensionFilter("Arquivo de texto (*.txt)", "txt"));
+
+		if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+
+		File arquivo = chooser.getSelectedFile();
+		if (!arquivo.getName().toLowerCase(Locale.ROOT).endsWith(".txt")) {
+			arquivo = new File(arquivo.getAbsolutePath() + ".txt");
+		}
+
+		try (BufferedWriter writer = new BufferedWriter(
+				new FileWriter(arquivo, StandardCharsets.UTF_8))) {
+			for (int i = 0; i < model.size(); i++) {
+				writer.write(model.getElementAt(i));
+				writer.newLine();
+			}
+			JOptionPane.showMessageDialog(this, "Arquivo salvo:\n" + arquivo.getAbsolutePath());
+		} catch (IOException ex) {
+			JOptionPane.showMessageDialog(this, "Erro ao salvar arquivo:\n" + ex.getMessage());
+		}
+	}
+
+	private void abrirArquivo() {
+		JFileChooser chooser = new JFileChooser();
+		chooser.setDialogTitle("Abrir log");
+		chooser.setFileFilter(new FileNameExtensionFilter("Arquivo de texto (*.txt)", "txt"));
+
+		if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+
+		File arquivo = chooser.getSelectedFile();
+		try (java.io.BufferedReader reader = new java.io.BufferedReader(
+				new java.io.FileReader(arquivo, StandardCharsets.UTF_8))) {
+			limparMonitor();
+			String linha;
+			while ((linha = reader.readLine()) != null) {
+				linhasMonitor.add(linha);
+			}
+			aplicarFiltro();
+			scrollToBottom();
+		} catch (IOException ex) {
+			JOptionPane.showMessageDialog(this, "Erro ao abrir arquivo:\n" + ex.getMessage());
+		}
 	}
 
 	private void carregarFiltrosSalvos() {
