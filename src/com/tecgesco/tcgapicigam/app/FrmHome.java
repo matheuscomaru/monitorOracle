@@ -4,6 +4,8 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.SystemColor;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -33,6 +35,7 @@ import javax.swing.JToolBar;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JSeparator;
 import javax.swing.SwingConstants;
 import java.awt.Dimension;
@@ -55,6 +58,7 @@ public class FrmHome extends JFrame {
 	private final Set<String> eventosRecentes = new LinkedHashSet<String>();
 	private final List<String> linhasMonitor = new ArrayList<String>();
 	private JButton btnNewButton_1;
+	private JButton btnCopiarLog;
 	private JTextField txtDesconsiderar;
 	private JLabel lblNewLabel;
 	private JLabel lblNewLabel_1;
@@ -115,6 +119,7 @@ public class FrmHome extends JFrame {
 		});
 
 		JToolBar toolBar = new JToolBar();
+		toolBar.setFloatable(false);
 		panel_1.add(toolBar, BorderLayout.NORTH);
 
 		btnMonitor = new JButton("Iniciar / Parar Monitor");
@@ -137,6 +142,14 @@ public class FrmHome extends JFrame {
 		btnNewButton_1.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				limparMonitor();
+			}
+		});
+
+		btnCopiarLog = new JButton("Copiar Log");
+		toolBar.add(btnCopiarLog);
+		btnCopiarLog.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				copiarLogFiltrado();
 			}
 		});
 		
@@ -334,28 +347,69 @@ public class FrmHome extends JFrame {
 	}
 
 	private void aplicarFiltro() {
-		String termo = txtPesquisa.getText();
-		String termoNormalizado = termo == null ? "" : termo.trim().toLowerCase(Locale.ROOT);
-		String termoDesconsiderar = txtDesconsiderar.getText();
-		String termoDesconsiderarNormalizado = termoDesconsiderar == null ? ""
-				: termoDesconsiderar.trim().toLowerCase(Locale.ROOT);
+		List<String> termosPesquisa = extrairTermos(txtPesquisa.getText());
+		List<String> termosDesconsiderar = extrairTermos(txtDesconsiderar.getText());
 
 		model.clear();
 		for (String linha : linhasMonitor) {
 			String linhaNormalizada = linha.toLowerCase(Locale.ROOT);
-			boolean atendePesquisa = termoNormalizado.isEmpty() || linhaNormalizada.contains(termoNormalizado);
-			boolean atendeDesconsiderar = termoDesconsiderarNormalizado.isEmpty()
-					|| !linhaNormalizada.contains(termoDesconsiderarNormalizado);
+			boolean atendePesquisa = termosPesquisa.isEmpty() || contemAlgumTermo(linhaNormalizada, termosPesquisa);
+			boolean atendeDesconsiderar = termosDesconsiderar.isEmpty()
+					|| !contemAlgumTermo(linhaNormalizada, termosDesconsiderar);
 			if (atendePesquisa && atendeDesconsiderar) {
 				model.addElement(linha);
 			}
 		}
 	}
 
+	private List<String> extrairTermos(String texto) {
+		List<String> termos = new ArrayList<String>();
+		if (texto == null || texto.trim().isEmpty()) {
+			return termos;
+		}
+
+		String[] partes = texto.toLowerCase(Locale.ROOT).split("/");
+		for (String parte : partes) {
+			String termo = parte.trim();
+			if (!termo.isEmpty()) {
+				termos.add(termo);
+			}
+		}
+
+		return termos;
+	}
+
+	private boolean contemAlgumTermo(String linha, List<String> termos) {
+		for (String termo : termos) {
+			if (linha.contains(termo)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private void limparMonitor() {
 		linhasMonitor.clear();
 		eventosRecentes.clear();
 		model.clear();
+	}
+
+	private void copiarLogFiltrado() {
+		if (model.isEmpty()) {
+			JOptionPane.showMessageDialog(this, "Nao ha linhas visiveis para copiar.");
+			return;
+		}
+
+		StringBuilder conteudo = new StringBuilder();
+		for (int i = 0; i < model.size(); i++) {
+			if (i > 0) {
+				conteudo.append(System.lineSeparator());
+			}
+			conteudo.append(model.getElementAt(i));
+		}
+
+		Toolkit.getDefaultToolkit().getSystemClipboard()
+				.setContents(new StringSelection(conteudo.toString()), null);
 	}
 
 	private void carregarFiltrosSalvos() {
