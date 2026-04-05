@@ -357,9 +357,10 @@ public class FrmHome extends JFrame {
 					if (nome == null || nome.trim().isEmpty()) {
 						nome = ":" + posicao;
 					}
-					if (valor == null || valor.trim().isEmpty()) {
-						valor = "<nao capturado>";
-					}
+
+					//if (valor == null || valor.trim().isEmpty()) {
+						//valor = "<nao capturado>";
+					//}
 
 					parametros.add(nome + "=" + valor);
 				}
@@ -545,8 +546,8 @@ public class FrmHome extends JFrame {
 
 		JTextArea editorTexto = new JTextArea();
 		editorTexto.setEditable(true);
-		editorTexto.setLineWrap(false);
-		editorTexto.setWrapStyleWord(false);
+		editorTexto.setLineWrap(true);
+		editorTexto.setWrapStyleWord(true);
 		editorTexto.setFont(new Font("Monospaced", Font.PLAIN, 12));
 		editorTexto.setText(conteudo);
 		editorTexto.setCaretPosition(0);
